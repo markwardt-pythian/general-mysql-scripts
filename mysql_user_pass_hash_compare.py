@@ -24,7 +24,7 @@ def myrun(cmd):
     return stdout
 
 cmd1 = "mysql --defaults-file=%s -h %s -e \"SELECT user FROM mysql.user\" | grep -v user" % (defaults_file, host_name)
-output = myrun("mysql --defaults-file=~/.my.phoenix.cnf -h prd-phoenix1.cdjxjcfonahz.us-east-1.rds.amazonaws.com -e \"SELECT user FROM mysql.user\" | grep -v user")
+output = myrun("mysql --defaults-file=%s -h %s -e \"SELECT user FROM mysql.user\" | grep -v user") % (defaults_file, host_name)
 failed_users = []
 for line in output:
     #print line
