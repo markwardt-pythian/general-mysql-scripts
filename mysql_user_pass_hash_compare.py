@@ -1,38 +1,107 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 import sys
+import getopt
 import subprocess
 
-if len(sys.argv) == 3:
-    defaults_file = sys.argv[1]
-    host_name = sys.argv[2]
-    #print defaults_file
-    #print host_name
-else:
+mysql_host = ''
+mysql_user = ''
+mysql_pass = ''
+mysql_defaults = ''
+mysql_args = '-B -N'
+
+print
+
+# Functions
+
+def usage():
     print
-    print "Please specify the first argument as the defaults file, and the second as the host name of the MySQL instnace"
-    print "ex. %s <defaults_file_path> <hostname>" % sys.argv[0]
+    print "Usage : "
+    print "-h --host        Description : MySQL host to connect to."
+    print "-u --user        Description : MySQL account username."
+    print "-p --password    Description : MySQL account password."
+    print "-d --defaults    Description : Defaults file that contains MySQL crednetials.  Use either username and password or defaults.  Do not use both."
+    print "-H --help        Description : Show script usage."
     print
-    sys.exit()
+    print "Example : "
+    print "%s " % sys.argv[0]
+    print "%s -h server -u root -p password" % sys.argv[0]
+    print "%s -h server -d defaults/file/path" % sys.argv[0]
+    print
 
 def myrun(cmd):
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout = []
     for line in p.stdout:
-	line = str(line).rstrip()
-    	stdout.append(line)
+        line = str(line).rstrip()
+        stdout.append(line)
+
     return stdout
 
-cmd1 = "mysql --defaults-file=%s -h %s -e \"SELECT user FROM mysql.user\" | grep -v user" % (defaults_file, host_name)
-output = myrun("mysql --defaults-file=%s -h %s -e \"SELECT user FROM mysql.user\" | grep -v user") % (defaults_file, host_name)
+# Process command line arguments
+try:
+    myopts, args = getopt.getopt(sys.argv[1:],"h:u:p:d:H:",['host=','user=','password=','defaults=','help'])
+except getopt.GetoptError as e:
+    print (str(e))
+    usage()
+    sys.exit(2)
+
+for o, a in myopts:
+    if o in ("-h", "--host"):
+        mysql_host = a
+        mysql_args = "%s -h %s" % (mysql_args, mysql_host)
+    elif o in ("-u", "--user"):
+        if mysql_defaults == '':
+            mysql_user = a
+            mysql_args = "%s -u %s" % (mysql_args, mysql_user)
+        else:
+            print "Please use user and pass OR defaults.  Please do not use both"
+            usage()
+            sys.exit()
+    elif o in ("-p", "--password"):
+        mysql_pass = a
+        mysql_args = "%s -p%s" % (mysql_args, mysql_pass)
+    elif o in ("-d", "--defaults"):
+        if mysql_user == '' and mysql_pass == '':
+            mysql_defaults = a
+            mysql_args = "--defaults-file=%s %s" % (mysql_defaults, mysql_args)
+        else:
+            print "Please use user and pass OR defaults.  Please do not use both"
+            usage()
+            sys.exit()
+    elif o in ("-H", "--help"):
+        print "Displaying usage"
+        usage()
+        sys.exit()
+    else:
+        assert False, "unhandled option"
+
+# Building MySQL connection arguments
+print "Checking MySQL Connectivity"
+
+cmd = "mysql %s -e 'SHOW DATABASES'" % mysql_args
+output = myrun(cmd)
+mysql_connect = False
+for line in output:
+    if line == 'mysql':
+        mysql_connect = True
+
+if mysql_connect:
+    print "MySQL connected successfully"
+else:
+    print "MySQL connection failed!"
+    sys.exit()
+
+cmd1 = "mysql %s -e \"SELECT user FROM mysql.user\" | grep -v user" % (mysql_args)
+output = myrun(cmd1)
 failed_users = []
 for line in output:
     #print line
-    cmd2 = "mysql --defaults-file=%s -h %s -e \"SELECT PASSWORD('%s')\" | grep -v PASSWORD" % (defaults_file, host_name, line)
+    cmd2 = "mysql %s -e \"SELECT PASSWORD('%s')\" | grep -v PASSWORD" % (mysql_args, line)
     #cmd = 'ls'
     user_hash = myrun(cmd2)
     #print "USERNAME HASH = %s" % user_hash[0]
-    cmd3 = "mysql --defaults-file=%s -h %s -e \"SELECT password FROM mysql.user WHERE user = '%s'\" | grep -v password" % (defaults_file, host_name, line)
+    cmd3 = "mysql %s -e \"SELECT password FROM mysql.user WHERE user = '%s'\" | grep -v password" % (mysql_args, line)
     #print cmd2
     mysql_hash = myrun(cmd3)
     #print "PASSWORD HASH = %s" % mysql_hash[0]
