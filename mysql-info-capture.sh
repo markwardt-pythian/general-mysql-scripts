@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# Script assumes that you have the .my.cnf configuration setup to login to mysql
+
 SERVER_NAME=`hostname`
 CAPTURE_DIR="Pythian_MySQL_Capture_$SERVER_NAME"
 
